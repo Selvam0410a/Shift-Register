@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ShiftReg — Serial Data Transfer Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0D12;
+    --bg-soft:#0D1117;
+    --panel:#10151D;
+    --panel-2:#0D1218;
+    --border:rgba(148,197,220,0.14);
+    --border-strong:rgba(148,197,220,0.28);
+    --ink:#EAF2F8;
+    --ink-soft:#7C93A6;
+    --ink-faint:#4E617A;
+    --cyan:#22D3EE;
+    --pink:#FB5D77;
+    --amber:#F5A623;
+    --green:#34D399;
+    --sans:'Inter',system-ui,'Segoe UI',Arial,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  :root[data-theme="light"]{
+    --bg:#F3F6F9; --bg-soft:#ECF1F5; --panel:#FFFFFF; --panel-2:#F5F8FA;
+    --border:rgba(16,40,60,0.12); --border-strong:rgba(16,40,60,0.22);
+    --ink:#0E1620; --ink-soft:#54677C; --ink-faint:#8598AB;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    line-height:1.6; min-height:100%; font-size:15px;
+  }
+  a{color:var(--cyan); text-decoration:none;}
+  :focus-visible{outline:2px solid var(--cyan); outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms !important; transition-duration:.001ms !important;} }
+  .mono{ font-family:var(--mono); }
+  code{ font-family:var(--mono); }
+
+  /* ---------- Nav ---------- */
+  .nav{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    padding:calc(14px + env(safe-area-inset-top,0px)) 26px 14px;
+    background:color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-left{ display:flex; align-items:center; gap:12px; }
+  .logo-mark{
+    width:34px; height:34px; border-radius:9px; display:grid; place-items:center;
+    background:var(--panel-2); border:1px solid var(--border-strong); color:var(--cyan); font-size:16px;
+  }
+  .brand-name{ font-weight:800; font-size:0.95rem; letter-spacing:-0.01em; }
+  .brand-name span{ color:var(--cyan); }
+  .brand-sub{ font-family:var(--mono); font-size:0.62rem; color:var(--ink-faint); letter-spacing:0.06em; text-transform:uppercase; margin-top:1px; }
+  .nav-menu{ display:flex; gap:26px; }
+  .nav-menu a{ color:var(--ink-soft); font-size:0.86rem; font-weight:500; transition:color .15s; }
+  .nav-menu a:hover{ color:var(--ink); }
+  .nav-right{ display:flex; align-items:center; gap:12px; }
+  .status-chip{
+    font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft);
+    border:1px solid var(--border); padding:5px 10px; border-radius:999px; display:flex; align-items:center; gap:6px; white-space:nowrap;
+  }
+  .status-dot{ width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); }
+  .icon-btn{
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--panel-2);
+    color:var(--ink-soft); display:grid; place-items:center; cursor:pointer; font-size:14px;
+  }
+  .avatar{
+    width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg, var(--cyan), var(--pink));
+    display:grid; place-items:center; color:#03131A; font-weight:800; font-size:0.72rem; font-family:var(--mono);
+  }
+  @media (max-width:860px){ .nav-menu{ display:none; } }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 26px; }
+
+  /* ---------- Eyebrow / section heading ---------- */
+  .eyebrow{
+    font-family:var(--mono); font-size:0.72rem; color:var(--cyan); letter-spacing:0.06em;
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+  }
+  .eyebrow .dash{ width:16px; height:1px; background:var(--cyan); display:inline-block; }
+  h2.sec-title{ font-size:1.7rem; margin:0 0 10px; font-weight:800; letter-spacing:-0.01em; }
+  p.sec-desc{ color:var(--ink-soft); max-width:60ch; margin:0 0 18px; }
+
+  /* ---------- Hero ---------- */
+  .hero{ padding:56px 0 40px; display:grid; grid-template-columns:1.3fr 1fr; gap:40px; align-items:start; }
+  @media (max-width:900px){ .hero{ grid-template-columns:1fr; padding-top:36px; } }
+  .hero h1{ font-family:var(--mono); font-size:2.6rem; line-height:1.15; margin:0 0 18px; font-weight:700; letter-spacing:-0.01em; }
+  .hero h1 .hi{ color:var(--cyan); }
+  .hero p.lead{ color:var(--ink-soft); font-size:1.02rem; max-width:52ch; margin:0 0 24px; }
+  .hero-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+  .btn{
+    font-family:var(--sans); font-weight:700; font-size:0.87rem; padding:11px 18px;
+    border-radius:9px; border:1px solid var(--border-strong); background:var(--panel-2); color:var(--ink);
+    cursor:pointer; transition:transform .15s, box-shadow .15s;
+  }
+  .btn.primary{ background:var(--cyan); color:#03131A; border-color:transparent; }
+  .btn:hover{ transform:translateY(-1px); }
+  .btn.primary:hover{ box-shadow:0 8px 20px -8px rgba(34,211,238,0.55); }
+  .hero-tag{ font-family:var(--mono); font-size:0.78rem; color:var(--ink-soft); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .hero-tag .ok{ color:var(--green); }
+
+  .monitor{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px 18px;
+  }
+  .monitor-head{ display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); margin-bottom:12px; }
+  .monitor-head .live{ color:var(--green); }
+  .monitor-body{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:14px;
+    display:flex; gap:6px; flex-wrap:wrap; min-height:74px; align-items:center;
+  }
+  .mini-bit{
+    width:24px; height:30px; border-radius:5px; border:1px solid var(--border-strong);
+    display:grid; place-items:center; font-family:var(--mono); font-size:0.78rem; color:var(--ink-soft);
+  }
+  .mini-bit.on{ background:var(--cyan); color:#03131A; border-color:transparent; }
+  .monitor-stats{ display:flex; justify-content:space-between; margin-top:14px; font-family:var(--mono); font-size:0.72rem; }
+  .monitor-stats div span{ display:block; color:var(--ink-faint); font-size:0.62rem; text-transform:uppercase; }
+  .monitor-stats div b{ color:var(--ink); font-size:0.92rem; }
+
+  /* ---------- Generic sections ---------- */
+  .section{ padding:46px 0; border-top:1px solid var(--border); }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:840px){ .two-col{ grid-template-columns:1fr; } }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:22px 22px 24px; }
+  .card h3{ margin:0 0 10px; font-size:1.15rem; font-weight:700; }
+  .card p{ color:var(--ink-soft); font-size:0.92rem; }
+
+  .step-row{ display:flex; gap:16px; margin-top:18px; flex-wrap:wrap; }
+  .step{ flex:1; min-width:140px; }
+  .step .num{ font-family:var(--mono); color:var(--cyan); font-size:0.72rem; }
+  .step .t{ font-weight:700; font-size:0.86rem; margin:4px 0 2px; }
+  .step .d{ color:var(--ink-soft); font-size:0.8rem; }
+
+  .icon-list{ display:flex; gap:22px; margin-top:16px; flex-wrap:wrap; }
+  .icon-list div{ display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--ink-soft); }
+
+  /* ---------- Control deck / live simulator ---------- */
+  .sim-grid{ display:grid; grid-template-columns:0.85fr 1.15fr; gap:18px; }
+  @media (max-width:900px){ .sim-grid{ grid-template-columns:1fr; } }
+  .deck-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .pill{ font-family:var(--mono); font-size:0.66rem; color:var(--green); border:1px solid var(--border); padding:4px 9px; border-radius:999px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:0.76rem; color:var(--ink-soft); margin-bottom:6px; font-weight:600; }
+  select, input[type="text"], input[type="number"], input:not([type]){
+    width:100%; padding:9px 11px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--ink); font-family:var(--mono); font-size:0.88rem;
+  }
+  .seed-row{ display:flex; gap:8px; align-items:flex-end; }
+  .seed-row .field{ flex:1; margin-bottom:0; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  .err{ color:var(--pink); font-size:0.8rem; min-height:1.2em; margin:10px 0 0; font-family:var(--mono); }
+
+  .scope-card .scope-head{ display:flex; justify-content:space-between; margin-bottom:4px; }
+  .scope-tag{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; }
+
+  .register{ display:flex; gap:8px; flex-wrap:wrap; padding:16px 0; }
+  .bit-cell{
+    width:48px; height:60px; border-radius:9px; border:1px solid var(--border-strong);
+    display:flex; align-items:center; justify-content:center; position:relative;
+    font-family:var(--mono); font-weight:600; font-size:1.15rem; color:var(--ink-soft);
+    background:var(--panel-2); transition:background .25s, color .25s, border-color .25s, transform .2s;
+  }
+  .bit-cell.bit-1{ background:var(--cyan); color:#03131A; border-color:transparent; transform:translateY(-2px); }
+  .bit-cell .idx{ position:absolute; bottom:-18px; left:0; right:0; text-align:center; font-size:0.6rem; color:var(--ink-faint); font-family:var(--mono); }
+  .io-row{ display:flex; justify-content:space-between; margin-top:18px; }
+  .io-chip{ font-family:var(--mono); font-size:0.8rem; padding:7px 12px; border-radius:8px; background:var(--panel-2); border:1px solid var(--border); color:var(--ink-soft); }
+  .io-chip.hot{ color:var(--cyan); border-color:var(--border-strong); }
+
+  /* ---------- Tables ---------- */
+  .table-wrap{ overflow-x:auto; border-radius:10px; border:1px solid var(--border); margin-top:14px; }
+  table{ border-collapse:collapse; width:100%; font-family:var(--mono); font-size:0.8rem; min-width:560px; }
+  th,td{ padding:9px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+  thead th{ background:var(--panel-2); color:var(--ink-faint); font-weight:600; font-size:0.68rem; text-transform:uppercase; letter-spacing:.04em; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--panel-2); }
+  .pass{ color:var(--green); font-weight:700; }
+  .fail{ color:var(--pink); font-weight:700; }
+
+  svg#waveSvg{ width:100%; height:180px; border-radius:10px; background:var(--panel-2); border:1px solid var(--border); }
+  .wave-label{ font-family:var(--mono); font-size:9px; fill:var(--ink-faint); }
+  .wave-line{ fill:none; stroke-width:2.4; }
+
+  /* ---------- Stats ---------- */
+  .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  @media (max-width:800px){ .stat-grid{ grid-template-columns:repeat(2,1fr); } }
+  .stat{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+  .stat .k{ font-family:var(--mono); font-size:0.66rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; }
+  .stat .v{ font-family:var(--mono); font-size:1.5rem; font-weight:700; margin-top:6px; }
+  .stat .d{ font-size:0.76rem; color:var(--ink-soft); margin-top:2px; }
+
+  /* ---------- Deliverables ---------- */
+  .deliver-card{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:26px; margin-top:8px; }
+  .deliver-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:16px; }
+  @media (max-width:800px){ .deliver-grid{ grid-template-columns:repeat(2,1fr); } }
+  .deliver-item{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:0.82rem;
+  }
+  .deliver-item .ok{ color:var(--green); margin-right:6px; }
+  .deliver-item .tag{ font-family:var(--mono); font-size:0.62rem; color:var(--ink-faint); }
+
+  /* ---------- Docs ---------- */
+  .doc-row{ display:flex; justify-content:space-between; gap:10px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .doc-row:last-child{ border-bottom:none; }
+  .doc-row .t{ font-weight:700; font-size:0.92rem; margin-bottom:3px; }
+  .doc-row .d{ color:var(--ink-soft); font-size:0.84rem; max-width:52ch; }
+  .code-tabs{ display:flex; gap:14px; font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); margin-bottom:14px; }
+  .code-tabs .on{ color:var(--ink); border:1px solid var(--border); padding:3px 9px; border-radius:999px; }
+  .code-box{ background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:14px; font-family:var(--mono); font-size:0.8rem; color:var(--ink-soft); overflow-x:auto; }
+  .code-box .kw{ color:var(--amber); }
+  .code-box .id{ color:var(--cyan); }
+  .checks{ display:flex; gap:16px; margin-top:14px; flex-wrap:wrap; font-family:var(--mono); font-size:0.72rem; color:var(--ink-soft); }
+  .checks span::before{ content:"✓ "; color:var(--green); }
+
+  /* ---------- Footer ---------- */
+  footer.site{ border-top:1px solid var(--border); padding:22px 0 calc(22px + env(safe-area-inset-bottom,0px)); }
+  .footer-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+  .footer-brand{ display:flex; align-items:center; gap:10px; }
+  .footer-tag{ color:var(--ink-faint); font-size:0.82rem; }
+  .footer-links{ display:flex; gap:18px; font-family:var(--mono); font-size:0.72rem; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="logo-mark">⌗</div>
+    <div>
+      <div class="brand-name">SHIFT<span>REG</span></div>
+      <div class="brand-sub">EC2201 / Digital Electronics</div>
+    </div>
+  </div>
+  <div class="nav-menu">
+    <a href="#home">Home</a>
+    <a href="#simulator">Simulator</a>
+    <a href="#testcases">Test Cases</a>
+    <a href="#results">Results</a>
+    <a href="#docs">Documentation</a>
+  </div>
+  <div class="nav-right">
+    <span class="status-chip"><span class="status-dot"></span>LIVE LAB / EC2201</span>
+    <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☀</button>
+    <div class="avatar">SR</div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- HERO / HOME -->
+  <section id="home" class="hero">
+    <div>
+      <div class="eyebrow"><span class="dash"></span>INTERACTIVE DIGITAL LOGIC LAB &nbsp;·&nbsp; V1.0 / BROWSER MODE</div>
+      <h1>Shift Register<br>Serial Data <span class="hi">Transfer</span><br>Simulator</h1>
+      <p class="lead">Understand, visualize and test SISO / SIPO / PISO / PIPO shift-register behavior using a clock-driven digital logic model.</p>
+      <div class="hero-actions">
+        <button class="btn primary" onclick="document.getElementById('simulator').scrollIntoView({behavior:'smooth'})">▶ Launch simulator</button>
+        <button class="btn" onclick="document.getElementById('docs').scrollIntoView({behavior:'smooth'})">📖 Explore concept</button>
+      </div>
+      <div class="hero-tag"><span class="ok">✓</span> EC2201 · Synchronous Sequential Circuits &nbsp;·&nbsp; <span style="color:var(--green)">MODEL READY</span></div>
+    </div>
+    <div class="monitor">
+      <div class="monitor-head"><span>REGISTER MONITOR</span><span class="live">● LIVE</span></div>
+      <div class="monitor-body" id="heroMonitor"></div>
+      <div class="monitor-stats">
+        <div><span>Mode</span><b id="heroMode">SISO</b></div>
+        <div><span>State</span><b id="heroState">0000</b></div>
+        <div><span>Seed</span><b id="heroSeed">42</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 / WHY IT MATTERS -->
+  <section class="section two-col">
+    <div class="card">
+      <div class="eyebrow">01 / WHY IT MATTERS</div>
+      <h3>Parallel data, one wire at a time.</h3>
+      <p>Most buses inside a chip are parallel, but many links between chips — SPI, sensor lines, long cables — only have one data wire. A shift register is the bridge: it converts a wide parallel word into a slow serial stream, or the reverse, one clock edge at a time.</p>
+      <div class="step-row">
+        <div class="step"><div class="num">01</div><div class="t">LOAD OR FEED</div><div class="d">Parallel bits loaded, or serial bits fed in one at a time</div></div>
+        <div class="step"><div class="num">02</div><div class="t">SHIFT EACH CLOCK</div><div class="d">Every edge, bits move one position toward the output end</div></div>
+        <div class="step"><div class="num">03</div><div class="t">READ THE RESULT</div><div class="d">Serial or parallel output is valid once shifting completes</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">💡 WHAT IS HAPPENING?</div>
+      <h3>One clock. One bit moves.</h3>
+      <p>On every rising edge, the register samples its input, shifts its stored bits right by one position, and emits whatever fell off the end. After <code>N</code> edges, all <code>N</code> bits originally fed in have either passed through or settled into place.</p>
+      <div class="icon-list">
+        <div>🔌 UART links</div>
+        <div>🧮 Microcontrollers</div>
+        <div>📶 SPI / sensor buses</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 / LIVE INSTRUMENT -->
+  <section id="simulator" class="section">
+    <div class="eyebrow">02 / LIVE INSTRUMENT</div>
+    <h2 class="sec-title">Live shift register simulator</h2>
+    <p class="sec-desc">Pick a mode, feed the register, then step or auto-run the clock and watch the state change.</p>
+
+    <div class="sim-grid">
+      <div class="card">
+        <div class="deck-head"><h3 style="margin:0;">Control deck</h3><span class="pill">BROWSER ONLY</span></div>
+
+        <div class="field">
+          <label for="modeSelect">Mode</label>
+          <select id="modeSelect">
+            <option value="SISO">SISO — Serial In, Serial Out</option>
+            <option value="SIPO">SIPO — Serial In, Parallel Out</option>
+            <option value="PISO">PISO — Parallel In, Serial Out</option>
+            <option value="PIPO">PIPO — Parallel In, Parallel Out</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="widthSelect">Register width (bits)</label>
+          <select id="widthSelect">
+            <option value="1">1</option>
+            <option value="4" selected>4</option>
+            <option value="6">6</option>
+            <option value="8">8</option>
+          </select>
+        </div>
+        <div class="field">
+          <label id="dataLabel" for="dataInput">Serial input stream (binary)</label>
+          <input id="dataInput" type="text" value="1011" inputmode="numeric">
+        </div>
+        <div class="seed-row">
+          <div class="field"><label for="seedInput">Seed</label><input id="seedInput" type="number" value="42"></div>
+          <div class="field"><label for="lenInput">Length</label><input id="lenInput" type="number" value="8" min="1" max="16"></div>
+          <button id="genBtn" class="btn" type="button">↻</button>
+        </div>
+        <div class="btn-row">
+          <button id="loadBtn" class="btn" type="button">Load / Reset</button>
+          <button id="stepBtn" class="btn primary" type="button">▶ Step</button>
+          <button id="autoBtn" class="btn" type="button">Auto-run</button>
+        </div>
+        <p id="errMsg" class="err" role="status"></p>
+        <p style="font-family:var(--mono); font-size:0.72rem; color:var(--ink-faint); margin-top:6px;">Same seed = same generated stream.</p>
+      </div>
+
+      <div class="card scope-card">
+        <div class="scope-head">
+          <span class="scope-tag">Dual-trace register view</span>
+          <span class="mono" style="font-size:0.7rem; color:var(--ink-faint);" id="cycleLabel">CYCLE 0</span>
+        </div>
+        <h3 style="margin-top:2px;">Register contents</h3>
+        <div id="registerRow" class="register"></div>
+        <div class="io-row">
+          <span class="io-chip">SI →</span>
+          <span id="soLabel" class="io-chip hot">SO: —</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 / INTERNAL LOGIC -->
+  <section class="section two-col">
+    <div class="card">
+      <div class="eyebrow">03 / INTERNAL LOGIC</div>
+      <h3>Shift-right register logic</h3>
+      <p>Each clock edge: capture the input bit at the MSB end, shift every other bit one place to the right, and emit the old LSB as serial output.</p>
+      <div class="code-box" style="margin-top:14px;">
+<span class="kw">on</span> clock_edge:<br>
+&nbsp;&nbsp;so <span class="kw">=</span> state[width-1]<br>
+&nbsp;&nbsp;state <span class="kw">=</span> [<span class="id">serial_in</span>] + state[0 : width-1]
+      </div>
+    </div>
+    <div class="card">
+      <div class="eyebrow">Clock-by-clock trace</div>
+      <h3>Truth table</h3>
+      <div class="table-wrap">
+        <table id="stateTable">
+          <thead><tr><th>Cycle</th><th>SI</th><th>Register (MSB→LSB)</th><th>SO</th><th>Note</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 / SIGNAL PATH -->
+  <section class="section">
+    <div class="eyebrow">04 / SIGNAL PATH</div>
+    <h2 class="sec-title">Follow the signal</h2>
+    <p class="sec-desc">Every mode moves through the same four stages — only the entry and exit points change.</p>
+    <div class="step-row">
+      <div class="step card"><div class="num">01</div><div class="t">📥 INPUT</div><div class="d">Serial stream or parallel load word</div></div>
+      <div class="step card"><div class="num">02</div><div class="t">🧮 REGISTER</div><div class="d">Bits held in flip-flop cells, MSB → LSB</div></div>
+      <div class="step card"><div class="num">03</div><div class="t">⏱ CLOCK</div><div class="d">One shift per rising edge, N edges total</div></div>
+      <div class="step card"><div class="num">04</div><div class="t">✓ OUTPUT</div><div class="d">Serial bit stream or parallel word ready</div></div>
+    </div>
+  </section>
+
+  <!-- 05 / PERFORMANCE -->
+  <section id="results" class="section">
+    <div class="eyebrow">05 / PERFORMANCE</div>
+    <h2 class="sec-title">Run results</h2>
+    <p class="sec-desc">Live counters from the simulator above, plus the timing diagram for the run in progress.</p>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">Cycles run</div><div class="v" id="statCycle">0</div><div class="d">clock edges applied</div></div>
+      <div class="stat"><div class="k">Register width</div><div class="v" id="statWidth">4</div><div class="d">bits</div></div>
+      <div class="stat"><div class="k">Mode</div><div class="v" id="statMode">SISO</div><div class="d">active transfer mode</div></div>
+      <div class="stat"><div class="k">Test pass rate</div><div class="v" id="statPassRate">—</div><div class="d">run the suite below</div></div>
+    </div>
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Timing diagram</h3>
+      <p style="margin-top:0;">Clock, serial-in and serial-out levels across the cycles run so far.</p>
+      <svg id="waveSvg" viewBox="0 0 640 170" preserveAspectRatio="none"></svg>
+    </div>
+  </section>
+
+  <!-- 06 / VALIDATION SUITE -->
+  <section id="testcases" class="section">
+    <div class="eyebrow">06 / VALIDATION SUITE</div>
+    <h2 class="sec-title">Test cases</h2>
+    <p class="sec-desc">10 normal cases + 5 edge/fault cases, generated with a seeded PRNG (mulberry32, seed 42) so every run reproduces the same vectors. Each case cross-checks the array-based engine above against an independently coded string-based reference model.</p>
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <button id="runTestsBtn" class="btn primary" type="button">Run all 15 tests</button>
+      <span id="testSummary" class="mono" style="color:var(--ink-soft); font-size:0.85rem;"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="testTable">
+        <thead><tr><th>#</th><th>Case</th><th>Mode</th><th>Width</th><th>Input</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 07 / PROJECT NOTES -->
+  <section id="docs" class="section two-col">
+    <div>
+      <div class="eyebrow">07 / PROJECT NOTES</div>
+      <h2 class="sec-title">Documentation</h2>
+      <p class="sec-desc">The implementation follows a digital-logic-first approach: define the shift model before adding the visualization layer.</p>
+      <div class="doc-row">
+        <div><div class="t">Project objective</div><div class="d">Visualize how SISO / SIPO / PISO / PIPO shift registers convert between serial and parallel data, one clock at a time.</div></div>
+      </div>
+      <div class="doc-row">
+        <div><div class="t">Assumptions</div><div class="d">Registers power up cleared to 0, shift right (MSB in, LSB out), inputs are strictly binary, and PISO/PIPO loads must match the register width exactly.</div></div>
+      </div>
+      <div class="doc-row">
+        <div><div class="t">Future improvements</div><div class="d">Add left-shift mode, multi-register cascading, and a bit-error-rate view for noisy serial links.</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="code-tabs"><span class="on">README</span><span>LAB NOTE</span><span>LOCAL MODEL</span></div>
+      <h3 style="margin-top:0;">Right-shift register model</h3>
+      <p>On every clock edge the register captures the serial input at the MSB, shifts every bit one place toward the LSB, and emits the bit that falls off the end as serial output. Parallel modes load or read the whole word in one step instead of shifting.</p>
+      <div class="code-box" style="margin-top:12px;">
+<span class="kw">if</span> mode <span class="kw">in</span> (SISO, SIPO):<br>
+&nbsp;&nbsp;so <span class="kw">=</span> shift_step(<span class="id">serial_in</span>)<br>
+<span class="kw">if</span> mode <span class="kw">==</span> PISO:<br>
+&nbsp;&nbsp;load(<span class="id">parallel_in</span>); <span class="kw">then</span> shift N times, SI<span class="kw">=</span>0
+      </div>
+      <div class="checks">
+        <span>No backend required</span>
+        <span>Seeded, reproducible results</span>
+        <span>SVG waveform</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 / SUBMISSION READY -->
+  <section class="section">
+    <div class="deliver-card">
+      <div class="eyebrow">08 / SUBMISSION READY</div>
+      <h2 class="sec-title" style="margin-bottom:4px;">Project deliverables</h2>
+      <p class="sec-desc" style="margin-bottom:0;">A clean, presentation-ready lab artifact for your EC2201 review.</p>
+      <div class="deliver-grid">
+        <div class="deliver-item"><span><span class="ok">✓</span>Source code</span><span class="tag">READY</span></div>
+        <div class="deliver-item"><span><span class="ok">✓</span>README / methodology</span><span class="tag">READY</span></div>
+        <div class="deliver-item"><span><span class="ok">✓</span>Test dataset</span><span class="tag">READY</span></div>
+        <div class="deliver-item"><span><span class="ok">✓</span>15 test cases</span><span class="tag">READY</span></div>
+        <div class="deliver-item"><span><span class="ok">✓</span>Simulation results</span><span class="tag">READY</span></div>
+        <div class="deliver-item"><span><span class="ok">✓</span>Short demo flow</span><span class="tag">READY</span></div>
+        <div class="deliver-item"><span><span class="ok">✓</span>References</span><span class="tag">READY</span></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="site">
+  <div class="wrap footer-row">
+    <div class="footer-brand">
+      <div class="logo-mark">⌗</div>
+      <div>
+        <div class="brand-name">SHIFT<span>REG</span></div>
+        <div class="brand-sub">EC2201 — Digital Electronics</div>
+      </div>
+    </div>
+    <div class="footer-tag">Interactive educational project · Built for learning sequential logic</div>
+    <div class="footer-links"><a href="#docs">Documentation</a><a href="#testcases">Test suite</a><span>v1.0.0</span></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  document.getElementById("themeBtn").addEventListener("click", ()=>{
+    const root = document.documentElement;
+    const cur = root.getAttribute("data-theme");
+    root.setAttribute("data-theme", cur === "light" ? "dark" : "light");
+  });
+
+  // ---------- PRNG (reproducible synthetic data) ----------
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function seededBits(seed, len){
+    const rnd = mulberry32(seed);
+    let s = "";
+    for (let i=0;i<len;i++) s += (rnd() < 0.5 ? "0" : "1");
+    return s;
+  }
+
+  // ---------- Core engine (array-based) ----------
+  function validateBinary(str){
+    if (!/^[01]*$/.test(str)) throw new Error(`Invalid input "${str}": only characters 0/1 are allowed.`);
+  }
+
+  class Register {
+    constructor(width){ this.width = width; this.state = new Array(width).fill(0); }
+    loadParallel(bits){
+      if (bits.length !== this.width) throw new Error(`Parallel load length ${bits.length} does not match register width ${this.width}.`);
+      this.state = bits.slice();
+    }
+    shiftStep(serialInBit){
+      const so = this.state[this.width - 1];
+      this.state = [serialInBit ?? 0, ...this.state.slice(0, this.width - 1)];
+      return so;
+    }
+  }
+
+  function runSerial(width, bitsStr){
+    validateBinary(bitsStr);
+    const reg = new Register(width);
+    const history = [];
+    bitsStr.split("").forEach((ch,i)=>{
+      const b = Number(ch);
+      const so = reg.shiftStep(b);
+      history.push({cycle:i+1, si:b, state:reg.state.slice(), so, note:""});
+    });
+    return { history, finalState: reg.state.slice() };
+  }
+
+  function runPISO(width, loadStr, cycles){
+    validateBinary(loadStr);
+    if (loadStr.length !== width) throw new Error(`PISO load "${loadStr}" length ${loadStr.length} does not match width ${width}.`);
+    const reg = new Register(width);
+    reg.loadParallel(loadStr.split("").map(Number));
+    const history = [{cycle:0, si:"—", state:reg.state.slice(), so:"—", note:"parallel load"}];
+    for (let j=1;j<=cycles;j++){
+      const so = reg.shiftStep(0);
+      history.push({cycle:j, si:0, state:reg.state.slice(), so, note:""});
+    }
+    return { history, finalState: reg.state.slice() };
+  }
+
+  function runPIPO(width, loadStr){
+    validateBinary(loadStr);
+    if (loadStr.length !== width) throw new Error(`PIPO load "${loadStr}" length ${loadStr.length} does not match width ${width}.`);
+    const reg = new Register(width);
+    reg.loadParallel(loadStr.split("").map(Number));
+    return { history: [{cycle:1, si:"—", state:reg.state.slice(), so:"(parallel)", note:"immediate parallel load & read"}], finalState: reg.state.slice() };
+  }
+
+  // ---------- Independent reference model (string-based, for verification) ----------
+  function referenceSerial(bitsStr, width){
+    let state = "0".repeat(width);
+    const out = [];
+    for (const ch of bitsStr){
+      const so = state[state.length-1];
+      state = ch + state.slice(0, -1);
+      out.push({so:Number(so), state: state.split("").map(Number)});
+    }
+    return out;
+  }
+  function referencePISO(loadStr, width, cycles){
+    let state = loadStr;
+    const out = [];
+    for (let j=1;j<=cycles;j++){
+      const so = state[state.length-1];
+      state = "0" + state.slice(0,-1);
+      out.push({so:Number(so), state: state.split("").map(Number)});
+    }
+    return out;
+  }
+  function referencePIPO(loadStr){
+    return loadStr.split("").map(Number);
+  }
+  function arrEq(a,b){ return a.length===b.length && a.every((v,i)=>v===b[i]); }
+
+  // ---------- UI: live simulator ----------
+  const modeSelect = document.getElementById("modeSelect");
+  const widthSelect = document.getElementById("widthSelect");
+  const dataInput = document.getElementById("dataInput");
+  const dataLabel = document.getElementById("dataLabel");
+  const seedInput = document.getElementById("seedInput");
+  const lenInput = document.getElementById("lenInput");
+  const genBtn = document.getElementById("genBtn");
+  const loadBtn = document.getElementById("loadBtn");
+  const stepBtn = document.getElementById("stepBtn");
+  const autoBtn = document.getElementById("autoBtn");
+  const errMsg = document.getElementById("errMsg");
+  const registerRow = document.getElementById("registerRow");
+  const soLabel = document.getElementById("soLabel");
+  const stateTableBody = document.querySelector("#stateTable tbody");
+  const waveSvg = document.getElementById("waveSvg");
+  const statMode = document.getElementById("statMode");
+  const statCycle = document.getElementById("statCycle");
+  const statWidth = document.getElementById("statWidth");
+  const cycleLabel = document.getElementById("cycleLabel");
+  const heroMonitor = document.getElementById("heroMonitor");
+  const heroMode = document.getElementById("heroMode");
+  const heroState = document.getElementById("heroState");
+  const heroSeed = document.getElementById("heroSeed");
+
+  let sim = null;
+
+  function labelForMode(mode){
+    return (mode === "PISO" || mode === "PIPO")
+      ? "Parallel load bits (must equal width)"
+      : "Serial input stream (binary)";
+  }
+
+  function renderMini(container, stateArr){
+    container.innerHTML = "";
+    stateArr.forEach(bit=>{
+      const d = document.createElement("div");
+      d.className = "mini-bit" + (bit ? " on" : "");
+      d.textContent = bit;
+      container.appendChild(d);
+    });
+  }
+
+  function renderRegister(stateArr){
+    registerRow.innerHTML = "";
+    stateArr.forEach((bit, i)=>{
+      const cell = document.createElement("div");
+      cell.className = "bit-cell" + (bit ? " bit-1" : "");
+      cell.textContent = bit;
+      const idx = document.createElement("span");
+      idx.className = "idx";
+      idx.textContent = i===0 ? "MSB" : (i===stateArr.length-1 ? "LSB" : i);
+      cell.appendChild(idx);
+      registerRow.appendChild(cell);
+    });
+    renderMini(heroMonitor, stateArr);
+    heroState.textContent = stateArr.join("");
+  }
+
+  function renderStateTable(history){
+    stateTableBody.innerHTML = "";
+    history.forEach(row=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${row.cycle}</td><td>${row.si}</td><td>${row.state.join("")}</td><td>${row.so}</td><td>${row.note||""}</td>`;
+      stateTableBody.appendChild(tr);
+    });
+  }
+
+  function drawWave(history){
+    const stepW = 60, x0 = 40, midClk=40, midSi=90, midSo=140, amp=16;
+    const n = Math.max(history.length, 1);
+    const totalW = Math.max(640, x0 + n*stepW + 20);
+    waveSvg.setAttribute("viewBox", `0 0 ${totalW} 170`);
+
+    function stepPath(values, mid){
+      let d = `M ${x0} ${mid + amp}`;
+      values.forEach((v,i)=>{
+        const xL = x0 + i*stepW, xR = x0 + (i+1)*stepW;
+        const y = v ? mid - amp : mid + amp;
+        d += ` L ${xL} ${y} L ${xR} ${y}`;
+      });
+      return d;
+    }
+
+    const clockVals = history.map((_,i)=> i%2===0 ? 1 : 0);
+    const siVals = history.map(r => (r.si===0||r.si===1) ? r.si : 0);
+    const soVals = history.map(r => (r.so===0||r.so===1) ? r.so : 0);
+
+    let svg = "";
+    svg += `<text x="4" y="${midClk}" class="wave-label">CLK</text>`;
+    svg += `<text x="4" y="${midSi}" class="wave-label">SI</text>`;
+    svg += `<text x="4" y="${midSo}" class="wave-label">SO</text>`;
+    svg += `<path class="wave-line" d="${stepPath(clockVals, midClk)}" style="stroke:var(--cyan)"/>`;
+    svg += `<path class="wave-line" d="${stepPath(siVals, midSi)}" style="stroke:var(--amber)"/>`;
+    svg += `<path class="wave-line" d="${stepPath(soVals, midSo)}" style="stroke:var(--pink)"/>`;
+    history.forEach((_,i)=>{
+      const x = x0 + i*stepW;
+      svg += `<text x="${x+stepW/2-6}" y="160" class="wave-label">${i+1}</text>`;
+    });
+    waveSvg.innerHTML = svg;
+  }
+
+  function stopAuto(){
+    if (sim && sim.autoTimer){ clearInterval(sim.autoTimer); sim.autoTimer = null; }
+    autoBtn.textContent = "Auto-run";
+  }
+
+  function loadSim(){
+    stopAuto();
+    errMsg.textContent = "";
+    const mode = modeSelect.value;
+    const width = Number(widthSelect.value);
+    const data = dataInput.value.trim();
+    statMode.textContent = mode;
+    statWidth.textContent = width;
+    statCycle.textContent = "0";
+    heroMode.textContent = mode;
+    heroSeed.textContent = seedInput.value;
+    cycleLabel.textContent = "CYCLE 0";
+    try{
+      if (mode === "SISO" || mode === "SIPO"){
+        validateBinary(data);
+        sim = { mode, width, data, cycles: data.length, engine: (n)=>runSerial(width, data.slice(0,n)) };
+      } else if (mode === "PISO"){
+        validateBinary(data);
+        if (data.length !== width) throw new Error(`Parallel load "${data}" must be exactly ${width} bits.`);
+        sim = { mode, width, data, cycles: width, engine: (n)=>runPISO(width, data, n) };
+      } else {
+        validateBinary(data);
+        if (data.length !== width) throw new Error(`Parallel load "${data}" must be exactly ${width} bits.`);
+        sim = { mode, width, data, cycles: 1, engine: ()=>runPIPO(width, data) };
+      }
+      sim.pos = 0;
+      renderRegister(new Array(width).fill(0));
+      soLabel.textContent = "SO: —";
+      stateTableBody.innerHTML = "";
+      waveSvg.innerHTML = "";
+    } catch(e){
+      sim = null;
+      errMsg.textContent = e.message;
+      renderRegister(new Array(width).fill(0));
+    }
+  }
+
+  function stepSim(){
+    if (!sim){ errMsg.textContent = "Load the register first."; return; }
+    if (sim.pos >= sim.cycles){ errMsg.textContent = "End of stream — no more cycles to run."; stopAuto(); return; }
+    sim.pos += 1;
+    const result = sim.engine(sim.pos);
+    renderStateTable(result.history);
+    const last = result.history[result.history.length-1];
+    renderRegister(last.state);
+    soLabel.textContent = "SO: " + last.so;
+    statCycle.textContent = sim.pos;
+    cycleLabel.textContent = "CYCLE " + sim.pos;
+    drawWave(result.history);
+  }
+
+  function autoRun(){
+    if (!sim){ errMsg.textContent = "Load the register first."; return; }
+    if (sim.autoTimer){ stopAuto(); return; }
+    autoBtn.textContent = "Stop";
+    sim.autoTimer = setInterval(()=>{
+      if (!sim || sim.pos >= sim.cycles){ stopAuto(); return; }
+      stepSim();
+    }, 650);
+  }
+
+  modeSelect.addEventListener("change", ()=>{
+    dataLabel.textContent = labelForMode(modeSelect.value);
+    loadSim();
+  });
+  widthSelect.addEventListener("change", loadSim);
+  loadBtn.addEventListener("click", loadSim);
+  stepBtn.addEventListener("click", stepSim);
+  autoBtn.addEventListener("click", autoRun);
+  genBtn.addEventListener("click", ()=>{
+    const seed = Number(seedInput.value) || 0;
+    const len = Math.max(1, Math.min(16, Number(lenInput.value) || 8));
+    dataInput.value = seededBits(seed, len);
+    loadSim();
+  });
+
+  loadSim();
+
+  // ---------- Test suite ----------
+  const testSeedBits = (n)=> seededBits(42, n);
+  const rand6 = testSeedBits(6);
+  const rand10 = testSeedBits(10);
+
+  const TESTS = [
+    {id:1, name:"SISO basic 4-bit", mode:"SISO", width:4, data:"1011", fault:false},
+    {id:2, name:"SISO 8-bit stream", mode:"SISO", width:8, data:"11001010", fault:false},
+    {id:3, name:"SIPO full load 4-bit", mode:"SIPO", width:4, data:"0110", fault:false},
+    {id:4, name:"SIPO partial fill 8-bit", mode:"SIPO", width:8, data:"10100101".slice(0,6), fault:false},
+    {id:5, name:"PISO full unload 4-bit", mode:"PISO", width:4, data:"1101", cycles:4, fault:false},
+    {id:6, name:"PISO full unload 8-bit", mode:"PISO", width:8, data:"11110000", cycles:8, fault:false},
+    {id:7, name:"PIPO load 4-bit", mode:"PIPO", width:4, data:"0011", fault:false},
+    {id:8, name:"PIPO load 8-bit", mode:"PIPO", width:8, data:"10011001", fault:false},
+    {id:9, name:"SISO seeded synthetic (6b, seed 42)", mode:"SISO", width:6, data:rand6, fault:false},
+    {id:10, name:"SIPO overflow, seeded (10b into 8-bit reg)", mode:"SIPO", width:8, data:rand10, fault:false},
+    {id:11, name:"Edge: 1-bit register", mode:"SISO", width:1, data:"1", fault:false},
+    {id:12, name:"Fault: non-binary character", mode:"SISO", width:4, data:"10a1", fault:true},
+    {id:13, name:"Fault: PISO load/width mismatch", mode:"PISO", width:4, data:"110011", cycles:4, fault:true},
+    {id:14, name:"Edge: all-zero input, 8-bit", mode:"SISO", width:8, data:"00000000", fault:false},
+    {id:15, name:"Edge: zero clock cycles (empty stream)", mode:"SISO", width:8, data:"", fault:false},
+  ];
+
+  function runOneTest(tc){
+    try{
+      let engineFinal, refFinal;
+      if (tc.mode === "SISO" || tc.mode === "SIPO"){
+        const eng = runSerial(tc.width, tc.data);
+        const ref = referenceSerial(tc.data, tc.width);
+        engineFinal = eng.finalState;
+        refFinal = ref.length ? ref[ref.length-1].state : new Array(tc.width).fill(0);
+      } else if (tc.mode === "PISO"){
+        const eng = runPISO(tc.width, tc.data, tc.cycles);
+        const ref = referencePISO(tc.data, tc.width, tc.cycles);
+        engineFinal = eng.finalState;
+        refFinal = ref.length ? ref[ref.length-1].state : tc.data.split("").map(Number);
+      } else {
+        const eng = runPIPO(tc.width, tc.data);
+        engineFinal = eng.finalState;
+        refFinal = referencePIPO(tc.data);
+      }
+      if (tc.fault){
+        return { pass:false, expected:"error expected", actual:"no error thrown ("+engineFinal.join("")+")" };
+      }
+      const pass = arrEq(engineFinal, refFinal);
+      return { pass, expected: refFinal.join(""), actual: engineFinal.join("") };
+    } catch(e){
+      if (tc.fault) return { pass:true, expected:"error (invalid input rejected)", actual: e.message };
+      return { pass:false, expected:"valid simulation", actual:"error: "+e.message };
+    }
+  }
+
+  document.getElementById("runTestsBtn").addEventListener("click", ()=>{
+    const body = document.querySelector("#testTable tbody");
+    body.innerHTML = "";
+    let passCount = 0;
+    TESTS.forEach(tc=>{
+      const r = runOneTest(tc);
+      if (r.pass) passCount++;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${tc.id}</td><td>${tc.name}</td><td>${tc.mode}</td><td>${tc.width}</td>
+        <td>${tc.data === "" ? "(empty)" : tc.data}</td>
+        <td>${r.expected}</td><td>${r.actual}</td>
+        <td class="${r.pass ? 'pass':'fail'}">${r.pass ? 'PASS' : 'FAIL'}</td>`;
+      body.appendChild(tr);
+    });
+    document.getElementById("testSummary").textContent = `${passCount} / ${TESTS.length} cases passed.`;
+    document.getElementById("statPassRate").textContent = Math.round(100*passCount/TESTS.length) + "%";
+  });
+
+})();
+</script>
+</body>
+</html>
